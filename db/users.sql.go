@@ -16,10 +16,10 @@ returning id, email, username, hashed_password
 `
 
 type CreateUserParams struct {
-	ID             string
-	Email          string
-	Username       string
-	HashedPassword string
+	ID             string `json:"id"`
+	Email          string `json:"email"`
+	Username       string `json:"username"`
+	HashedPassword string `json:"hashed_password"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {

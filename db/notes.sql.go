@@ -16,10 +16,10 @@ returning id, owner_id, title, content, created_at, updated_at
 `
 
 type CreateNoteParams struct {
-	ID      string
-	OwnerID string
-	Title   string
-	Content string
+	ID      string `json:"id"`
+	OwnerID string `json:"owner_id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, error) {
@@ -84,7 +84,7 @@ func (q *Queries) GetNotesByOwnerID(ctx context.Context, ownerID string) ([]Note
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Note
+	items := []Note{}
 	for rows.Next() {
 		var i Note
 		if err := rows.Scan(
@@ -116,9 +116,9 @@ returning id, owner_id, title, content, created_at, updated_at
 `
 
 type UpdateNoteParams struct {
-	ID      string
-	Title   string
-	Content string
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) (Note, error) {

@@ -9,17 +9,17 @@ import (
 )
 
 type Note struct {
-	ID        string
-	OwnerID   string
-	Title     string
-	Content   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        string    `json:"id"`
+	OwnerID   string    `json:"owner_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type User struct {
-	ID             string
-	Email          string
-	Username       string
-	HashedPassword string
+	ID             string `json:"id"`
+	Email          string `json:"email"`
+	Username       string `json:"username"`
+	HashedPassword string `json:"hashed_password"`
 }
