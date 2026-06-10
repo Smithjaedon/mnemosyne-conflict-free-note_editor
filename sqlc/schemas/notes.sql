@@ -5,4 +5,4 @@ create table notes (
   content text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
-)
+);
