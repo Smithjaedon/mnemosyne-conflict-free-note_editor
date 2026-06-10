@@ -14,6 +14,17 @@ from notes
 where owner_id = $1
 order by created_at desc;
 
+-- name: GetNotesByUser :many
+select n.id, n.owner_id, n.title, n.content, n.created_at, n.updated_at
+from notes n
+where n.owner_id = $1
+union
+select n.id, n.owner_id, n.title, n.content, n.created_at, n.updated_at
+from notes n
+join share_notes sn on n.id = sn.note_id
+where sn.user_id = $1
+order by created_at desc;
+
 -- name: UpdateNote :one
 update notes
 set title = $2, content = $3, updated_at = now()

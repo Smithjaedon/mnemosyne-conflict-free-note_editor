@@ -108,6 +108,48 @@ func (q *Queries) GetNotesByOwnerID(ctx context.Context, ownerID string) ([]Note
 	return items, nil
 }
 
+const getNotesByUser = `-- name: GetNotesByUser :many
+select n.id, n.owner_id, n.title, n.content, n.created_at, n.updated_at
+from notes n
+where n.owner_id = $1
+union
+select n.id, n.owner_id, n.title, n.content, n.created_at, n.updated_at
+from notes n
+join share_notes sn on n.id = sn.note_id
+where sn.user_id = $1
+order by created_at desc
+`
+
+func (q *Queries) GetNotesByUser(ctx context.Context, ownerID string) ([]Note, error) {
+	rows, err := q.db.QueryContext(ctx, getNotesByUser, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Note{}
+	for rows.Next() {
+		var i Note
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Title,
+			&i.Content,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateNote = `-- name: UpdateNote :one
 update notes
 set title = $2, content = $3, updated_at = now()

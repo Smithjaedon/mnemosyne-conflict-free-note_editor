@@ -17,6 +17,12 @@ type Note struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type ShareNote struct {
+	UserID      string `json:"user_id"`
+	NoteID      string `json:"note_id"`
+	Permissions string `json:"permissions"`
+}
+
 type User struct {
 	ID             string `json:"id"`
 	Email          string `json:"email"`
