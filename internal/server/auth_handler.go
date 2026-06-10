@@ -83,17 +83,7 @@ func (s *Server) LoginHandler(c *gin.Context) {
 }
 
 func (s *Server) MeHandler(c *gin.Context) {
-	token, err := c.Cookie("access_token")
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing access token"})
-		return
-	}
-
-	userID, err := middleware.RequireAuth(token)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid access token"})
-		return
-	}
+	userID := c.GetString("userID")
 
 	user, err := s.queries.GetUserByID(c.Request.Context(), userID)
 	if err != nil {

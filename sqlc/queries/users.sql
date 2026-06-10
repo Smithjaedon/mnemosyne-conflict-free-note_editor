@@ -12,3 +12,10 @@ where username = $1;
 select id, email, username, hashed_password
 from users
 where id = $1;
+
+
+-- name: SearchUsers :many
+select id, email, username
+from users
+where username ilike $1 or email ilike $1
+limit 10;

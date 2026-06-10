@@ -74,3 +74,39 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 	)
 	return i, err
 }
+
+const searchUsers = `-- name: SearchUsers :many
+select id, email, username
+from users
+where username ilike $1 or email ilike $1
+limit 10
+`
+
+type SearchUsersRow struct {
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
+func (q *Queries) SearchUsers(ctx context.Context, username string) ([]SearchUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchUsers, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchUsersRow{}
+	for rows.Next() {
+		var i SearchUsersRow
+		if err := rows.Scan(&i.ID, &i.Email, &i.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

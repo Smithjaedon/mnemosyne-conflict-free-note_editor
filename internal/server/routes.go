@@ -31,6 +31,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		auth.GET("/me", s.MeHandler)
 		auth.POST("/notes", s.CreateNoteHandler)
 		auth.GET("/notes", s.GetNotesHandler)
+		auth.GET("/users", s.SearchUsersHandler)
 		auth.GET("/notes/:id", s.GetNoteHandler)
 		auth.PUT("/notes/:id", s.UpdateNoteHandler)
 		auth.DELETE("/notes/:id", s.DeleteNoteHandler)
@@ -48,6 +49,22 @@ func (s *Server) HelloWorldHandler(c *gin.Context) {
 
 func (s *Server) healthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, s.db.Health())
+}
+
+func (s *Server) SearchUsersHandler(c *gin.Context) {
+	q := c.Query("q")
+	if q == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query is required"})
+		return
+	}
+
+	users, err := s.queries.SearchUsers(c.Request.Context(), "%"+q+"%")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
 }
 
 func (s *Server) CreateNoteHandler(c *gin.Context) {
@@ -94,6 +111,7 @@ func (s *Server) GetNotesHandler(c *gin.Context) {
 
 func (s *Server) GetNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
+	userID := c.GetString("userID")
 
 	note, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
 
@@ -102,11 +120,28 @@ func (s *Server) GetNoteHandler(c *gin.Context) {
 		return
 	}
 
+	if note.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	c.JSON(http.StatusOK, note)
 }
 
 func (s *Server) UpdateNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
+	userID := c.GetString("userID")
+
+	existing, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if existing.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
 
 	var req struct {
 		Title   string `json:"title" binding:"required"`
@@ -134,8 +169,20 @@ func (s *Server) UpdateNoteHandler(c *gin.Context) {
 
 func (s *Server) DeleteNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
+	userID := c.GetString("userID")
 
-	err := s.queries.DeleteNote(c.Request.Context(), noteID)
+	existing, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if existing.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	err = s.queries.DeleteNote(c.Request.Context(), noteID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

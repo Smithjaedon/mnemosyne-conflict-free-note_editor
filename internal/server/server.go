@@ -14,8 +14,8 @@ import (
 )
 
 type Server struct {
-	port int
-	db database.Service
+	port    int
+	db      database.Service
 	queries *db.Queries
 }
 
@@ -27,9 +27,11 @@ func NewServer() *http.Server {
 	NewServer := &Server{
 		port: port,
 
-		db: dbService,
+		db:      dbService,
 		queries: queries,
 	}
+
+	NewServer.NoteGarbageCollection()
 
 	// Declare Server config
 	server := &http.Server{
