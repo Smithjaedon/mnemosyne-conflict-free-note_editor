@@ -83,11 +83,21 @@ func (s *Server) LoginHandler(c *gin.Context) {
 }
 
 func (s *Server) MeHandler(c *gin.Context) {
-	userID := c.GetString("userID")
+	token, err := c.Cookie("access_token")
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"user": nil})
+		return
+	}
+
+	userID, err := middleware.RequireAuth(token)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"user": nil})
+		return
+	}
 
 	user, err := s.queries.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		c.JSON(http.StatusOK, gin.H{"user": nil})
 		return
 	}
 
