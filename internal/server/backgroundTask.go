@@ -18,3 +18,14 @@ func (s *Server) NoteGarbageCollection() {
 		}
 	}()
 }
+
+func (s *Server) NoteViewCounterCleanup() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			s.CleanupNoteViewCounter()
+		}
+	}()
+}

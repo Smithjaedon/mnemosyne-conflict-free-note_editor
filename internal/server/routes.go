@@ -13,10 +13,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"}, // Add your frontend URL
+		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
-		AllowCredentials: true, // Enable cookies/auth
+		AllowCredentials: true,
 	}))
 
 	r.GET("/health", s.healthHandler)
@@ -29,49 +29,34 @@ func (s *Server) RegisterRoutes() http.Handler {
 	auth.Use(s.AuthMiddleware())
 	{
 		auth.GET("/me", s.MeHandler)
+
 		auth.POST("/notes", s.CreateNoteHandler)
 		auth.GET("/notes", s.GetNotesHandler)
-		auth.GET("/users", s.SearchUsersHandler)
-		auth.GET("/notes/shared", s.GetSharedNotesByUserIdHandler)
 		auth.GET("/notes/:id", s.GetNoteHandler)
-		auth.GET("/notes/:id/users", s.GetNoteUsersHandler)
+		auth.PUT("/notes/:id", s.UpdateNoteHandler)
+		auth.DELETE("/notes/:id", s.DeleteNoteHandler)
+
+		auth.GET("/notes/shared", s.GetSharedNotesByUserIdHandler)
 		auth.GET("/notes/:id/shared", s.GetSharedNoteByIDHandler)
+
+		auth.GET("/notes/:id/users", s.GetNoteUsersHandler)
 		auth.POST("/notes/:id/share", s.AddSharedNoteHandler)
 		auth.PUT("/notes/:id/share/:userId", s.UpdateSharedNoteHandler)
 		auth.DELETE("/notes/:id/share/:userId", s.RemoveSharedNoteHandler)
-		auth.PUT("/notes/:id", s.UpdateNoteHandler)
-		auth.DELETE("/notes/:id", s.DeleteNoteHandler)
+
+		auth.POST("/notes/:id/close", s.LeaveNoteHandler)
+
+		auth.GET("/users", s.SearchUsersHandler)
 	}
 
 	return r
-}
-
-func (s *Server) HelloWorldHandler(c *gin.Context) {
-	resp := make(map[string]string)
-	resp["message"] = "Hello World"
-
-	c.JSON(http.StatusOK, resp)
 }
 
 func (s *Server) healthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, s.db.Health())
 }
 
-func (s *Server) SearchUsersHandler(c *gin.Context) {
-	q := c.Query("q")
-	if q == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "query is required"})
-		return
-	}
-
-	users, err := s.queries.SearchUsers(c.Request.Context(), "%"+q+"%")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, users)
-}
+// ─── Notes CRUD (owned) ───────────────────────────────────
 
 func (s *Server) CreateNoteHandler(c *gin.Context) {
 	var req struct {
@@ -131,6 +116,7 @@ func (s *Server) GetNoteHandler(c *gin.Context) {
 		return
 	}
 
+	s.IncrementNoteViewCounter(noteID)
 	c.JSON(http.StatusOK, note)
 }
 
@@ -195,8 +181,12 @@ func (s *Server) DeleteNoteHandler(c *gin.Context) {
 		return
 	}
 
+	s.DeleteNoteViewCounter(noteID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Note deleted"})
 }
+
+// ─── Shared notes (read) ──────────────────────────────────
 
 func (s *Server) GetSharedNotesByUserIdHandler(c *gin.Context) {
 	userID := c.GetString("userID")
@@ -224,6 +214,31 @@ func (s *Server) GetSharedNoteByIDHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, note)
+}
+
+// ─── Share management ─────────────────────────────────────
+
+func (s *Server) GetNoteUsersHandler(c *gin.Context) {
+	noteID := c.Param("id")
+	userID := c.GetString("userID")
+
+	existing, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if existing.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	users, err := s.queries.GetNoteUsers(c.Request.Context(), noteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
 }
 
 func (s *Server) AddSharedNoteHandler(c *gin.Context) {
@@ -325,21 +340,24 @@ func (s *Server) RemoveSharedNoteHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User removed from note"})
 }
 
-func (s *Server) GetNoteUsersHandler(c *gin.Context) {
+// ─── Presence ─────────────────────────────────────────────
+
+func (s *Server) LeaveNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
-	userID := c.GetString("userID")
+	s.DecrementNoteViewCounter(noteID)
+	c.JSON(http.StatusOK, gin.H{"view_count": s.GetNoteViewCounter(noteID)})
+}
 
-	existing, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// ─── Users ────────────────────────────────────────────────
+
+func (s *Server) SearchUsersHandler(c *gin.Context) {
+	q := c.Query("q")
+	if q == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query is required"})
 		return
 	}
-	if existing.OwnerID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
-		return
-	}
 
-	users, err := s.queries.GetNoteUsers(c.Request.Context(), noteID)
+	users, err := s.queries.SearchUsers(c.Request.Context(), "%"+q+"%")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

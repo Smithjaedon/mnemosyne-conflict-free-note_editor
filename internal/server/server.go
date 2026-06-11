@@ -32,6 +32,7 @@ func NewServer() *http.Server {
 	}
 
 	NewServer.NoteGarbageCollection()
+	NewServer.NoteViewCounterCleanup()
 
 	// Declare Server config
 	server := &http.Server{
