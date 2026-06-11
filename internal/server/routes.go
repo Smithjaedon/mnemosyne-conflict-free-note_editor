@@ -24,12 +24,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.POST("/register", s.RegisterHandler)
 	r.POST("/login", s.LoginHandler)
 	r.POST("/logout", s.LogoutHandler)
+	r.GET("/me", s.MeHandler)
+
+	r.GET("/ws", handleWebSocket)
 
 	auth := r.Group("/")
 	auth.Use(s.AuthMiddleware())
 	{
-		auth.GET("/me", s.MeHandler)
-
 		auth.POST("/notes", s.CreateNoteHandler)
 		auth.GET("/notes", s.GetNotesHandler)
 		auth.GET("/notes/:id", s.GetNoteHandler)
@@ -45,7 +46,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 		auth.DELETE("/notes/:id/share/:userId", s.RemoveSharedNoteHandler)
 
 		auth.POST("/notes/:id/close", s.LeaveNoteHandler)
-		auth.GET("/notes/:id/ws", s.HandleWebSocket)
 
 		auth.GET("/users", s.SearchUsersHandler)
 	}
