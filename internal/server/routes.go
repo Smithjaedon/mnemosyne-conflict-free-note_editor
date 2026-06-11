@@ -45,6 +45,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		auth.DELETE("/notes/:id/share/:userId", s.RemoveSharedNoteHandler)
 
 		auth.POST("/notes/:id/close", s.LeaveNoteHandler)
+		auth.GET("/notes/:id/ws", s.HandleWebSocket)
 
 		auth.GET("/users", s.SearchUsersHandler)
 	}
