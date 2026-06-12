@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -15,45 +16,74 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+type Client struct {
+	username string
+	conn     *websocket.Conn
+}
+
 type Hub struct {
-	mu      sync.RWMutex
-	clients map[*websocket.Conn]string
+	mu    sync.RWMutex
+	rooms map[string][]*Client
 }
 
 func newHub() *Hub {
 	return &Hub{
-		clients: make(map[*websocket.Conn]string),
+		rooms: make(map[string][]*Client),
 	}
 }
 
-func (h *Hub) addClient(c *gin.Context, conn *websocket.Conn) {
+func (h *Hub) subscribe(conn *websocket.Conn, noteID, username string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	var username = c.GetString("userID")
-
-	h.clients[conn] = username
+	h.rooms[noteID] = append(h.rooms[noteID], &Client{username: username, conn: conn})
 }
 
-func (h *Hub) removeClient(conn *websocket.Conn) {
+func (h *Hub) unsubscribe(conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	delete(h.clients, conn)
-	conn.Close()
+	for noteID, clients := range h.rooms {
+		for i, c := range clients {
+			if c.conn == conn {
+				h.rooms[noteID] = append(h.rooms[noteID][:i], h.rooms[noteID][i+1:]...)
+				if len(h.rooms[noteID]) == 0 {
+					delete(h.rooms, noteID)
+				}
+				break
+			}
+		}
+	}
 }
 
-func (h *Hub) broadcast(messageType int, message []byte, exclude *websocket.Conn) {
+func (h *Hub) broadcastToRoom(noteID string, messageType int, message []byte, exclude *websocket.Conn) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	for conn := range h.clients {
-		if conn != exclude {
-			if err := conn.WriteMessage(messageType, message); err != nil {
+	for _, c := range h.rooms[noteID] {
+		if c.conn != exclude {
+			if err := c.conn.WriteMessage(messageType, message); err != nil {
 				log.Printf("Broadcast error: %v", err)
 			}
 		}
 	}
 }
 
+func (h *Hub) activeRooms() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	ids := make([]string, 0, len(h.rooms))
+	for id := range h.rooms {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 var hub = newHub()
+
+type wsMessage struct {
+	Type     string `json:"type"`
+	NoteID   string `json:"note_id"`
+	Username string `json:"username"`
+	Text     string `json:"text"`
+}
 
 func handleWebSocket(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -62,18 +92,52 @@ func handleWebSocket(c *gin.Context) {
 		return
 	}
 
-	hub.addClient(c, conn)
-	log.Printf("WebSocket client connected (%d total)", len(hub.clients))
+	var currentNoteID string
 
 	for {
-		messageType, message, err := conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Printf("WebSocket read error: %v", err)
 			break
 		}
-		hub.broadcast(messageType, message, conn)
+
+		var msg wsMessage
+		if err := json.Unmarshal(message, &msg); err != nil {
+			log.Printf("WebSocket unmarshal error: %v", err)
+			continue
+		}
+
+		switch msg.Type {
+		case "subscribe":
+			if currentNoteID != "" {
+				hub.unsubscribe(conn)
+			}
+			currentNoteID = msg.NoteID
+			if currentNoteID != "" {
+				hub.subscribe(conn, currentNoteID, msg.Username)
+			}
+			log.Printf("Client %s subscribed to room %s", msg.Username, currentNoteID)
+
+		case "message":
+			if currentNoteID != "" {
+				broadcast, _ := json.Marshal(map[string]string{
+					"type":     "message",
+					"note_id":  currentNoteID,
+					"username": msg.Username,
+					"text":     msg.Text,
+				})
+				hub.broadcastToRoom(currentNoteID, websocket.TextMessage, broadcast, conn)
+			}
+
+		case "rooms":
+			rooms := hub.activeRooms()
+			resp, _ := json.Marshal(map[string]interface{}{
+				"type":  "rooms",
+				"rooms": rooms,
+			})
+			conn.WriteMessage(websocket.TextMessage, resp)
+		}
 	}
 
-	hub.removeClient(conn)
-	log.Printf("WebSocket client disconnected (%d remaining)", len(hub.clients))
+	hub.unsubscribe(conn)
 }
