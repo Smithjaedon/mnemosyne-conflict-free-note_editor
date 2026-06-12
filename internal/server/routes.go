@@ -26,12 +26,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.POST("/logout", s.LogoutHandler)
 	r.GET("/me", s.MeHandler)
 
-	r.GET("/ws", handleWebSocket)
-	r.GET("/live", handleWebSocket)
+	r.GET("/ws", s.handleWebSocket)
 
 	auth := r.Group("/")
 	auth.Use(s.AuthMiddleware())
 	{
+		auth.GET("/live", s.handleWebSocket)
 		auth.POST("/notes", s.CreateNoteHandler)
 		auth.GET("/notes", s.GetNotesHandler)
 		auth.GET("/notes/:id", s.GetNoteHandler)
@@ -46,6 +46,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		auth.PUT("/notes/:id/share/:userId", s.UpdateSharedNoteHandler)
 		auth.DELETE("/notes/:id/share/:userId", s.RemoveSharedNoteHandler)
 
+		auth.GET("/notes/:id/viewers", s.GetNoteViewersHandler)
 		auth.POST("/notes/:id/close", s.LeaveNoteHandler)
 
 		auth.GET("/users", s.SearchUsersHandler)
@@ -215,6 +216,7 @@ func (s *Server) GetSharedNoteByIDHandler(c *gin.Context) {
 		return
 	}
 
+	s.IncrementNoteViewCounter(noteID)
 	c.JSON(http.StatusOK, note)
 }
 
@@ -343,6 +345,13 @@ func (s *Server) RemoveSharedNoteHandler(c *gin.Context) {
 }
 
 // ─── Presence ─────────────────────────────────────────────
+
+func (s *Server) GetNoteViewersHandler(c *gin.Context) {
+	noteID := c.Param("id")
+	count := s.GetNoteViewCounter(noteID)
+	viewers := hub.getRoomUsernames(noteID)
+	c.JSON(http.StatusOK, gin.H{"view_count": count, "viewers": viewers})
+}
 
 func (s *Server) LeaveNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
