@@ -118,6 +118,7 @@ func (s *Server) GetNotesHandler(c *gin.Context) {
 			"content":    n.Content,
 			"created_at": n.CreatedAt,
 			"updated_at": n.UpdatedAt,
+			"owner_id":   n.OwnerID,
 			"view_count": s.GetNoteViewCounter(n.ID),
 			"is_shared":  isShared,
 		}
