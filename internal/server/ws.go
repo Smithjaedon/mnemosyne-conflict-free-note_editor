@@ -83,6 +83,7 @@ type wsMessage struct {
 	NoteID   string `json:"note_id"`
 	Username string `json:"username"`
 	Text     string `json:"text"`
+	Content  string `json:"content"`
 }
 
 func handleWebSocket(c *gin.Context) {
@@ -125,6 +126,17 @@ func handleWebSocket(c *gin.Context) {
 					"note_id":  currentNoteID,
 					"username": msg.Username,
 					"text":     msg.Text,
+				})
+				hub.broadcastToRoom(currentNoteID, websocket.TextMessage, broadcast, conn)
+			}
+
+		case "update":
+			if currentNoteID != "" {
+				broadcast, _ := json.Marshal(map[string]string{
+					"type":     "update",
+					"note_id":  currentNoteID,
+					"username": msg.Username,
+					"content":  msg.Content,
 				})
 				hub.broadcastToRoom(currentNoteID, websocket.TextMessage, broadcast, conn)
 			}

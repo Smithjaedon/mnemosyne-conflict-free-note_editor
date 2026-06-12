@@ -27,6 +27,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/me", s.MeHandler)
 
 	r.GET("/ws", handleWebSocket)
+	r.GET("/live", handleWebSocket)
 
 	auth := r.Group("/")
 	auth.Use(s.AuthMiddleware())
