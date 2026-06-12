@@ -27,11 +27,33 @@ type Client struct {
 type Hub struct {
 	mu    sync.RWMutex
 	rooms map[string][]*Client
+	users map[string]*websocket.Conn
 }
 
 func newHub() *Hub {
 	return &Hub{
 		rooms: make(map[string][]*Client),
+		users: make(map[string]*websocket.Conn),
+	}
+}
+
+func (h *Hub) registerUser(userID string, conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.users[userID] = conn
+}
+
+func (h *Hub) unregisterUser(userID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.users, userID)
+}
+
+func (h *Hub) sendToUser(userID string, msg []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if conn, ok := h.users[userID]; ok {
+		conn.WriteMessage(websocket.TextMessage, msg)
 	}
 }
 
@@ -131,6 +153,7 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 		if claims, err := middleware.ValidateAccessToken(token); err == nil {
 			if uid, err := middleware.GetUserIDFromClaims(claims); err == nil {
 				currentUserID = uid
+				hub.registerUser(currentUserID, conn)
 				if user, err := s.queries.GetUserByID(context.Background(), currentUserID); err == nil {
 					currentUsername = user.Username
 				}
@@ -229,6 +252,9 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 
 	if currentNoteID != "" && currentUsername != "" {
 		hub.broadcastToRoom(currentNoteID, websocket.TextMessage, presenceMsg("user_left", currentNoteID, currentUsername), nil)
+	}
+	if currentUserID != "" {
+		hub.unregisterUser(currentUserID)
 	}
 	hub.unsubscribe(conn)
 }

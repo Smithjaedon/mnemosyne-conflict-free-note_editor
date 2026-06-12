@@ -2,6 +2,7 @@ package server
 
 import (
 	"Backend/db"
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -332,6 +333,11 @@ func (s *Server) AddSharedNoteHandler(c *gin.Context) {
 		return
 	}
 
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type": "notes_updated",
+	})
+	hub.sendToUser(req.TargetUserID, msg)
+
 	c.JSON(http.StatusOK, note)
 }
 
@@ -368,6 +374,11 @@ func (s *Server) UpdateSharedNoteHandler(c *gin.Context) {
 		return
 	}
 
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type": "notes_updated",
+	})
+	hub.sendToUser(targetUserID, msg)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Permissions updated"})
 }
 
@@ -394,6 +405,11 @@ func (s *Server) RemoveSharedNoteHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type": "notes_updated",
+	})
+	hub.sendToUser(targetUserID, msg)
 
 	c.JSON(http.StatusOK, gin.H{"message": "User removed from note"})
 }
