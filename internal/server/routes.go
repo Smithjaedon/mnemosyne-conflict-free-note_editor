@@ -89,6 +89,12 @@ func (s *Server) CreateNoteHandler(c *gin.Context) {
 		return
 	}
 
+	s.queries.AddNoteUser(c.Request.Context(), db.AddNoteUserParams{
+		UserID:      userID,
+		NoteID:      noteID,
+		Permissions: "owner",
+	})
+
 	c.JSON(http.StatusOK, note)
 }
 
@@ -132,6 +138,14 @@ func (s *Server) GetNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
 	userID := c.GetString("userID")
 
+	if _, err := s.queries.GetUserPermissionForNote(c.Request.Context(), db.GetUserPermissionForNoteParams{
+		UserID: userID,
+		NoteID: noteID,
+	}); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	note, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
 
 	if err != nil {
@@ -151,6 +165,21 @@ func (s *Server) GetNoteHandler(c *gin.Context) {
 func (s *Server) UpdateNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
 	userID := c.GetString("userID")
+
+	var perm string
+	var err error
+	if perm, err = s.queries.GetUserPermissionForNote(c.Request.Context(), db.GetUserPermissionForNoteParams{
+		UserID: userID,
+		NoteID: noteID,
+	}); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	if perm != "owner" && perm != "editor" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
 
 	existing, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
 	if err != nil {

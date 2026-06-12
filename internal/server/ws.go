@@ -126,7 +126,6 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 	var currentUsername string
 	var currentUserID string
 
-
 	token, err := c.Cookie("access_token")
 	if err == nil {
 		if claims, err := middleware.ValidateAccessToken(token); err == nil {
@@ -191,9 +190,20 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 				})
 				hub.broadcastToRoom(currentNoteID, websocket.TextMessage, broadcast, conn)
 
+				var perm string
+				var err error
+
+				perm, err = s.queries.GetUserPermissionForNote(context.Background(), db.GetUserPermissionForNoteParams{
+					UserID: currentUserID,
+					NoteID: currentNoteID,
+				})
+				if err != nil || (perm != "owner" && perm != "editor") {
+					continue
+				}
+
 				if currentUserID != "" {
 					existing, err := s.queries.GetNoteByID(context.Background(), currentNoteID)
-					if err == nil && existing.OwnerID == currentUserID {
+					if err == nil && existing.OwnerID == currentUserID || perm == "editor" {
 						title := msg.Title
 						if title == "" {
 							title = existing.Title
