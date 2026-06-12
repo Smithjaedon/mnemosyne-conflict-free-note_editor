@@ -106,6 +106,36 @@ func (q *Queries) GetSharedNoteByID(ctx context.Context, arg GetSharedNoteByIDPa
 	return i, err
 }
 
+const getSharedNoteByOwnerID = `-- name: GetSharedNoteByOwnerID :many
+select sn.note_id
+from share_notes sn
+join notes n on n.id = sn.note_id
+where n.owner_id = $1
+`
+
+func (q *Queries) GetSharedNoteByOwnerID(ctx context.Context, ownerID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getSharedNoteByOwnerID, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var note_id string
+		if err := rows.Scan(&note_id); err != nil {
+			return nil, err
+		}
+		items = append(items, note_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSharedNotesByUserID = `-- name: GetSharedNotesByUserID :many
 select n.id, n.title, n.content, n.created_at, n.updated_at, sn.permissions
 from notes n

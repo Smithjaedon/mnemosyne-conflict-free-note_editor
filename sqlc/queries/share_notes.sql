@@ -26,3 +26,10 @@ delete from share_notes where user_id = $1 and note_id = $2;
 
 -- name: UpdateNoteUserPermissions :exec
 update share_notes set permissions = $3 where user_id = $1 and note_id = $2;
+
+
+-- name: GetSharedNoteByOwnerID :many
+select sn.note_id
+from share_notes sn
+join notes n on n.id = sn.note_id
+where n.owner_id = $1;

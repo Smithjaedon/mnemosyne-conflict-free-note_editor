@@ -100,7 +100,30 @@ func (s *Server) GetNotesHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, notes)
+	shared, err := s.queries.GetSharedNoteByOwnerID(c.Request.Context(), userID)
+	if err != nil {
+		shared = nil
+	}
+	sharedSet := make(map[string]struct{}, len(shared))
+	for _, id := range shared {
+		sharedSet[id] = struct{}{}
+	}
+
+	resp := make([]gin.H, len(notes))
+	for i, n := range notes {
+		_, isShared := sharedSet[n.ID]
+		resp[i] = gin.H{
+			"id":         n.ID,
+			"title":      n.Title,
+			"content":    n.Content,
+			"created_at": n.CreatedAt,
+			"updated_at": n.UpdatedAt,
+			"view_count": s.GetNoteViewCounter(n.ID),
+			"is_shared":  isShared,
+		}
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (s *Server) GetNoteHandler(c *gin.Context) {
