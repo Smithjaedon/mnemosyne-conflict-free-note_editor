@@ -48,6 +48,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		auth.GET("/notes/:id/viewers", s.GetNoteViewersHandler)
 		auth.POST("/notes/:id/close", s.LeaveNoteHandler)
+		auth.GET("/notes/:id/permission", s.GetPermissionHandler)
 
 		auth.GET("/users", s.SearchUsersHandler)
 	}
@@ -399,4 +400,20 @@ func (s *Server) SearchUsersHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, users)
+}
+
+func (s *Server) GetPermissionHandler(c *gin.Context) {
+	noteID := c.Param("id")
+	userID := c.GetString("userID")
+
+	permission, err := s.queries.GetUserPermissionForNote(c.Request.Context(), db.GetUserPermissionForNoteParams{
+		UserID: userID,
+		NoteID: noteID,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permission": permission})
 }

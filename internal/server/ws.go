@@ -61,6 +61,7 @@ func (h *Hub) broadcastToRoom(noteID string, messageType int, message []byte, ex
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for _, c := range h.rooms[noteID] {
+
 		if c.conn != exclude {
 			if err := c.conn.WriteMessage(messageType, message); err != nil {
 				log.Printf("Broadcast error: %v", err)
@@ -124,6 +125,7 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 	var currentNoteID string
 	var currentUsername string
 	var currentUserID string
+
 
 	token, err := c.Cookie("access_token")
 	if err == nil {

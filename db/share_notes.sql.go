@@ -182,6 +182,24 @@ func (q *Queries) GetSharedNotesByUserID(ctx context.Context, userID string) ([]
 	return items, nil
 }
 
+const getUserPermissionForNote = `-- name: GetUserPermissionForNote :one
+select sn.permissions
+from share_notes sn
+where sn.user_id = $1 and sn.note_id = $2
+`
+
+type GetUserPermissionForNoteParams struct {
+	UserID string `json:"user_id"`
+	NoteID string `json:"note_id"`
+}
+
+func (q *Queries) GetUserPermissionForNote(ctx context.Context, arg GetUserPermissionForNoteParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getUserPermissionForNote, arg.UserID, arg.NoteID)
+	var permissions string
+	err := row.Scan(&permissions)
+	return permissions, err
+}
+
 const removeNoteUser = `-- name: RemoveNoteUser :exec
 delete from share_notes where user_id = $1 and note_id = $2
 `
