@@ -32,7 +32,9 @@ update share_notes set permissions = $3 where user_id = $1 and note_id = $2;
 select sn.note_id
 from share_notes sn
 join notes n on n.id = sn.note_id
-where n.owner_id = $1;
+where n.owner_id = $1
+group by sn.note_id
+having count(*) > 1;
 
 
 -- name: GetUserPermissionForNote :one

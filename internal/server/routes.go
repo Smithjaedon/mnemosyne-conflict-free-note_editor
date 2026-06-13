@@ -26,8 +26,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.POST("/logout", s.LogoutHandler)
 	r.GET("/me", s.MeHandler)
 
-	r.GET("/ws", s.handleWebSocket)
-
 	auth := r.Group("/")
 	auth.Use(s.AuthMiddleware())
 	{
@@ -153,11 +151,6 @@ func (s *Server) GetNoteHandler(c *gin.Context) {
 		return
 	}
 
-	if note.OwnerID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
-		return
-	}
-
 	s.IncrementNoteViewCounter(noteID)
 	c.JSON(http.StatusOK, note)
 }
@@ -177,17 +170,6 @@ func (s *Server) UpdateNoteHandler(c *gin.Context) {
 	}
 
 	if perm != "owner" && perm != "editor" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
-		return
-	}
-
-	existing, err := s.queries.GetNoteByID(c.Request.Context(), noteID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	if existing.OwnerID != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
 		return
 	}
@@ -402,6 +384,16 @@ func (s *Server) RemoveSharedNoteHandler(c *gin.Context) {
 
 func (s *Server) GetNoteViewersHandler(c *gin.Context) {
 	noteID := c.Param("id")
+	userID := c.GetString("userID")
+
+	if _, err := s.queries.GetUserPermissionForNote(c.Request.Context(), db.GetUserPermissionForNoteParams{
+		UserID: userID,
+		NoteID: noteID,
+	}); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	count := s.GetNoteViewCounter(noteID)
 	viewers := hub.getRoomUsernames(noteID)
 	c.JSON(http.StatusOK, gin.H{"view_count": count, "viewers": viewers})
@@ -409,6 +401,16 @@ func (s *Server) GetNoteViewersHandler(c *gin.Context) {
 
 func (s *Server) LeaveNoteHandler(c *gin.Context) {
 	noteID := c.Param("id")
+	userID := c.GetString("userID")
+
+	if _, err := s.queries.GetUserPermissionForNote(c.Request.Context(), db.GetUserPermissionForNoteParams{
+		UserID: userID,
+		NoteID: noteID,
+	}); err != nil {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	s.DecrementNoteViewCounter(noteID)
 	c.JSON(http.StatusOK, gin.H{"view_count": s.GetNoteViewCounter(noteID)})
 }
