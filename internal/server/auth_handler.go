@@ -24,6 +24,11 @@ func extractToken(c *gin.Context) string {
 	return ""
 }
 
+func setAuthCookie(c *gin.Context, token string, maxAge int) {
+	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	c.SetCookie("access_token", token, maxAge, "/", "", secure, true)
+}
+
 func (s *Server) RegisterHandler(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -60,6 +65,7 @@ func (s *Server) RegisterHandler(c *gin.Context) {
 		return
 	}
 
+	setAuthCookie(c, token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60)
 	c.JSON(http.StatusOK, gin.H{"token": token, "message": "registered"})
 }
 
@@ -90,6 +96,7 @@ func (s *Server) LoginHandler(c *gin.Context) {
 		return
 	}
 
+	setAuthCookie(c, token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60)
 	c.JSON(http.StatusOK, gin.H{"token": token, "message": "logged in"})
 }
 
@@ -116,6 +123,7 @@ func (s *Server) MeHandler(c *gin.Context) {
 }
 
 func (s *Server) LogoutHandler(c *gin.Context) {
+	setAuthCookie(c, "", -1)
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
