@@ -9,12 +9,13 @@ import (
 )
 
 type Note struct {
-	ID        string    `json:"id"`
-	OwnerID   string    `json:"owner_id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	OwnerID        string    `json:"owner_id"`
+	Title          string    `json:"title"`
+	Content        string    `json:"content"`
+	ContentVersion int32     `json:"content_version"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type ShareNote struct {

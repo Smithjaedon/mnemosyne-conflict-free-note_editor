@@ -118,14 +118,15 @@ func (s *Server) GetNotesHandler(c *gin.Context) {
 	for i, n := range notes {
 		_, isShared := sharedSet[n.ID]
 		resp[i] = gin.H{
-			"id":         n.ID,
-			"title":      n.Title,
-			"content":    n.Content,
-			"created_at": n.CreatedAt,
-			"updated_at": n.UpdatedAt,
-			"owner_id":   n.OwnerID,
-			"view_count": s.GetNoteViewCounter(n.ID),
-			"is_shared":  isShared,
+			"id":              n.ID,
+			"title":           n.Title,
+			"content":         n.Content,
+			"content_version": n.ContentVersion,
+			"created_at":      n.CreatedAt,
+			"updated_at":      n.UpdatedAt,
+			"owner_id":        n.OwnerID,
+			"view_count":      s.GetNoteViewCounter(n.ID),
+			"is_shared":       isShared,
 		}
 	}
 

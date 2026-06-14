@@ -67,8 +67,6 @@ func TestMain(m *testing.M) {
 }
 
 
-// _ can also give queries which can be used to access sqlc queries
-// _, queries := New()
 func TestNew(t *testing.T) {
 	srv, _ := New()
 	if srv == nil {

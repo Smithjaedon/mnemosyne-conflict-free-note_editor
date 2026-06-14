@@ -84,16 +84,6 @@ func (h *Hub) getRoomUsernames(noteID string) []string {
 	return usernames
 }
 
-func (h *Hub) activeRooms() []string {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	ids := make([]string, 0, len(h.rooms))
-	for id := range h.rooms {
-		ids = append(ids, id)
-	}
-	return ids
-}
-
 var hub = newHub()
 
 type wsMessage struct {
@@ -104,6 +94,8 @@ type wsMessage struct {
 	Title    string `json:"title"`
 	Content  string `json:"content"`
 	Cursor   int    `json:"cursor"`
+	Version  int32  `json:"version"`
+	Target   string `json:"target"`
 }
 
 func presenceMsg(msgType, noteID, username string) []byte {
@@ -175,25 +167,14 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 					"username": msg.Username,
 					"text":     msg.Text,
 					"cursor":   msg.Cursor,
+					"target":   msg.Target,
 				})
 				hub.broadcastToRoom(currentNoteID, websocket.TextMessage, broadcast, conn)
 			}
 
 		case "update":
 			if currentNoteID != "" {
-				broadcast, _ := json.Marshal(map[string]interface{}{
-					"type":     "update",
-					"note_id":  currentNoteID,
-					"username": msg.Username,
-					"content":  msg.Content,
-					"cursor":   msg.Cursor,
-				})
-				hub.broadcastToRoom(currentNoteID, websocket.TextMessage, broadcast, conn)
-
-				var perm string
-				var err error
-
-				perm, err = s.queries.GetUserPermissionForNote(context.Background(), db.GetUserPermissionForNoteParams{
+				perm, err := s.queries.GetUserPermissionForNote(context.Background(), db.GetUserPermissionForNoteParams{
 					UserID: currentUserID,
 					NoteID: currentNoteID,
 				})
@@ -201,29 +182,39 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 					continue
 				}
 
-				if currentUserID != "" {
-					existing, err := s.queries.GetNoteByID(context.Background(), currentNoteID)
-					if err == nil && existing.OwnerID == currentUserID || perm == "editor" {
-						title := msg.Title
-						if title == "" {
-							title = existing.Title
-						}
-						s.queries.UpdateNote(context.Background(), db.UpdateNoteParams{
-							ID:      currentNoteID,
-							Title:   title,
-							Content: msg.Content,
-						})
-					}
+				existing, err := s.queries.GetNoteByID(context.Background(), currentNoteID)
+				if err != nil {
+					continue
 				}
+
+				cs := Changeset{
+					Ops:     []Op{{End: 0, Text: msg.Content, DeleteCount: len(existing.Content)}},
+					Version: msg.Version,
+					Title:   msg.Title,
+				}
+				if err := s.handleChangeset(context.Background(), currentNoteID, cs); err != nil {
+					continue
+				}
+
+				updated, err := s.queries.GetNoteByID(context.Background(), currentNoteID)
+				newVersion := existing.ContentVersion
+				if err == nil {
+					newVersion = updated.ContentVersion
+				}
+
+				broadcast, _ := json.Marshal(map[string]interface{}{
+					"type":            "update",
+					"note_id":         currentNoteID,
+					"username":        msg.Username,
+					"title":           msg.Title,
+					"content":         msg.Content,
+					"cursor":          msg.Cursor,
+					"target":          msg.Target,
+					"content_version": newVersion,
+				})
+				hub.broadcastToRoom(currentNoteID, websocket.TextMessage, broadcast, nil)
 			}
 
-		case "rooms":
-			rooms := hub.activeRooms()
-			resp, _ := json.Marshal(map[string]interface{}{
-				"type":  "rooms",
-				"rooms": rooms,
-			})
-			conn.WriteMessage(websocket.TextMessage, resp)
 		}
 	}
 

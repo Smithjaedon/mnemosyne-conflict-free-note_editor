@@ -10,9 +10,9 @@ import (
 )
 
 const createNote = `-- name: CreateNote :one
-insert into notes (id, owner_id, title, content)
-values ($1, $2, $3, $4)
-returning id, owner_id, title, content, created_at, updated_at
+insert into notes (id, owner_id, title, content, content_version)
+values ($1, $2, $3, $4, 1)
+returning id, owner_id, title, content, content_version, created_at, updated_at
 `
 
 type CreateNoteParams struct {
@@ -35,6 +35,7 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, e
 		&i.OwnerID,
 		&i.Title,
 		&i.Content,
+		&i.ContentVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -52,7 +53,7 @@ func (q *Queries) DeleteNote(ctx context.Context, id string) error {
 }
 
 const getNoteByID = `-- name: GetNoteByID :one
-select id, owner_id, title, content, created_at, updated_at
+select id, owner_id, title, content, content_version, created_at, updated_at
 from notes
 where id = $1
 `
@@ -65,55 +66,19 @@ func (q *Queries) GetNoteByID(ctx context.Context, id string) (Note, error) {
 		&i.OwnerID,
 		&i.Title,
 		&i.Content,
+		&i.ContentVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getNotesByOwnerID = `-- name: GetNotesByOwnerID :many
-select id, owner_id, title, content, created_at, updated_at
-from notes
-where owner_id = $1
-order by created_at desc
-`
-
-func (q *Queries) GetNotesByOwnerID(ctx context.Context, ownerID string) ([]Note, error) {
-	rows, err := q.db.QueryContext(ctx, getNotesByOwnerID, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Note{}
-	for rows.Next() {
-		var i Note
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Title,
-			&i.Content,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getNotesByUser = `-- name: GetNotesByUser :many
-select n.id, n.owner_id, n.title, n.content, n.created_at, n.updated_at
+select n.id, n.owner_id, n.title, n.content, n.content_version, n.created_at, n.updated_at
 from notes n
 where n.owner_id = $1
 union
-select n.id, n.owner_id, n.title, n.content, n.created_at, n.updated_at
+select n.id, n.owner_id, n.title, n.content, n.content_version, n.created_at, n.updated_at
 from notes n
 join share_notes sn on n.id = sn.note_id
 where sn.user_id = $1
@@ -134,6 +99,7 @@ func (q *Queries) GetNotesByUser(ctx context.Context, ownerID string) ([]Note, e
 			&i.OwnerID,
 			&i.Title,
 			&i.Content,
+			&i.ContentVersion,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -152,9 +118,9 @@ func (q *Queries) GetNotesByUser(ctx context.Context, ownerID string) ([]Note, e
 
 const updateNote = `-- name: UpdateNote :one
 update notes
-set title = $2, content = $3, updated_at = now()
+set title = $2, content = $3, content_version = content_version + 1, updated_at = now()
 where id = $1
-returning id, owner_id, title, content, created_at, updated_at
+returning id, owner_id, title, content, content_version, created_at, updated_at
 `
 
 type UpdateNoteParams struct {
@@ -171,6 +137,7 @@ func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) (Note, e
 		&i.OwnerID,
 		&i.Title,
 		&i.Content,
+		&i.ContentVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

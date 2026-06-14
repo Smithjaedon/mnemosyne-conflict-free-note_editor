@@ -1,7 +1,6 @@
 package database
 
 import (
-  db "Backend/db"
 	"context"
 	"database/sql"
 	"fmt"
@@ -10,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-  
-	_ "github.com/joho/godotenv/autoload"
+	db "Backend/db"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
-  
+	_ "github.com/joho/godotenv/autoload"
 )
 
 // Service represents a service that interacts with a database.
@@ -31,14 +30,14 @@ type service struct {
 }
 
 var (
-  database   = os.Getenv("BLUEPRINT_DB_DATABASE")
-password   = os.Getenv("BLUEPRINT_DB_PASSWORD")
-username   = os.Getenv("BLUEPRINT_DB_USERNAME")
-port       = os.Getenv("BLUEPRINT_DB_PORT")
-host       = os.Getenv("BLUEPRINT_DB_HOST")
-schema     = os.Getenv("BLUEPRINT_DB_SCHEMA")
+	database   = os.Getenv("BLUEPRINT_DB_DATABASE")
+	password   = os.Getenv("BLUEPRINT_DB_PASSWORD")
+	username   = os.Getenv("BLUEPRINT_DB_USERNAME")
+	port       = os.Getenv("BLUEPRINT_DB_PORT")
+	host       = os.Getenv("BLUEPRINT_DB_HOST")
+	schema     = os.Getenv("BLUEPRINT_DB_SCHEMA")
 	dbInstance *service
-	queries *db.Queries
+	queries    *db.Queries
 )
 
 func New() (Service, *db.Queries) {
@@ -47,8 +46,8 @@ func New() (Service, *db.Queries) {
 		return dbInstance, queries
 	}
 
-  connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, host, port, database, schema)
-  conn, err := sql.Open("pgx", connStr)
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, host, port, database, schema)
+	conn, err := sql.Open("pgx", connStr)
 
 	if err != nil {
 		// This will not be a connection error, but a DSN parse error or
