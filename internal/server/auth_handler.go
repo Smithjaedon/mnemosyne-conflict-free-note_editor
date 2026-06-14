@@ -12,7 +12,7 @@ import (
 )
 
 func setAuthCookie(c *gin.Context, token string, maxAge int) {
-	secure := c.Request.TLS != nil
+	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
 	sameSite := http.SameSiteLaxMode
 	if secure {
 		sameSite = http.SameSiteNoneMode
