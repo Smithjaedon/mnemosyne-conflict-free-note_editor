@@ -46,7 +46,10 @@ func New() (Service, *db.Queries) {
 		return dbInstance, queries
 	}
 
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, host, port, database, schema)
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, host, port, database, schema)
+	}
 	conn, err := sql.Open("pgx", connStr)
 
 	if err != nil {
