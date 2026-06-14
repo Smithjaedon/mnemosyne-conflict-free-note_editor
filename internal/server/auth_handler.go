@@ -11,14 +11,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func setAuthCookie(c *gin.Context, token string, maxAge int) {
-	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
-	sameSite := http.SameSiteLaxMode
-	if secure {
-		sameSite = http.SameSiteNoneMode
+func extractToken(c *gin.Context) string {
+	if t := c.GetHeader("Authorization"); len(t) > 7 && t[:7] == "Bearer " {
+		return t[7:]
 	}
-	c.SetSameSite(sameSite)
-	c.SetCookie("access_token", token, maxAge, "/", "", secure, true)
+	if t, err := c.Cookie("access_token"); err == nil {
+		return t
+	}
+	if t := c.Query("token"); t != "" {
+		return t
+	}
+	return ""
 }
 
 func (s *Server) RegisterHandler(c *gin.Context) {
@@ -57,8 +60,7 @@ func (s *Server) RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	setAuthCookie(c, token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60)
-	c.JSON(http.StatusOK, gin.H{"message": "registered"})
+	c.JSON(http.StatusOK, gin.H{"token": token, "message": "registered"})
 }
 
 func (s *Server) LoginHandler(c *gin.Context) {
@@ -88,13 +90,12 @@ func (s *Server) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	setAuthCookie(c, token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60)
-	c.JSON(http.StatusOK, gin.H{"message": "logged in"})
+	c.JSON(http.StatusOK, gin.H{"token": token, "message": "logged in"})
 }
 
 func (s *Server) MeHandler(c *gin.Context) {
-	token, err := c.Cookie("access_token")
-	if err != nil {
+	token := extractToken(c)
+	if token == "" {
 		c.JSON(http.StatusOK, gin.H{"user": nil})
 		return
 	}
@@ -115,14 +116,13 @@ func (s *Server) MeHandler(c *gin.Context) {
 }
 
 func (s *Server) LogoutHandler(c *gin.Context) {
-	setAuthCookie(c, "", -1)
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
 func (s *Server) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token, err := c.Cookie("access_token")
-		if err != nil {
+		token := extractToken(c)
+		if token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing access token"})
 			c.Abort()
 			return

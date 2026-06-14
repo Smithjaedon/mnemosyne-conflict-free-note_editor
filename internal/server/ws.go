@@ -118,8 +118,8 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 	var currentUsername string
 	var currentUserID string
 
-	token, err := c.Cookie("access_token")
-	if err == nil {
+	token := extractToken(c)
+	if token != "" {
 		if claims, err := middleware.ValidateAccessToken(token); err == nil {
 			if uid, err := middleware.GetUserIDFromClaims(claims); err == nil {
 				currentUserID = uid
