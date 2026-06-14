@@ -3,6 +3,7 @@ package server
 import (
 	"Backend/db"
 	"net/http"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://mnemosyne-frontend-nine.vercel.app", "http://localhost:5173", "http://localhost:8080"},
+		AllowOriginFunc: func(origin string) bool {
+			return origin == "https://mnemosyne-frontend-nine.vercel.app" ||
+				origin == "https://mnemosyne-frontend-smithjaedons-projects.vercel.app" ||
+				origin == "https://mnemosyne-frontend-git-master-smithjaedons-projects.vercel.app" ||
+				strings.HasSuffix(origin, ".vercel.app") ||
+				origin == "http://localhost:5173" ||
+				origin == "http://localhost:8080"
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
