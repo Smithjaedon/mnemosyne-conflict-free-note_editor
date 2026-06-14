@@ -139,6 +139,16 @@ goose down    # roll back all migrations
 
 ---
 
+## OT Implementation
+
+The collaborative editing backend uses **Operational Transformation (OT)**. The implementation is based on the EasySync algorithm described in the following paper:
+
+- [EasySync: A Comprehensive Description of the EasySync OT Protocol](https://github.com/knemerzitski/notes/blob/article/packages/collab/docs/easysync-full-description.pdf)
+
+This document served as the primary reference for the OT protocol, including document model, operation types, transformation functions, and merge logic.
+
+---
+
 ## Notes
 
 - This tool is a wrapper around [Go Blueprint](https://github.com/Melkeydev/go-blueprint). The underlying project structure and some generated code come from Go Blueprint; `goproto` adds the auth setup, SQLc configuration, and Makefile commands on top.
