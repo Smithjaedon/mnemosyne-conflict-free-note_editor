@@ -11,6 +11,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func setAuthCookie(c *gin.Context, token string, maxAge int) {
+	secure := c.Request.TLS != nil
+	sameSite := http.SameSiteLaxMode
+	if secure {
+		sameSite = http.SameSiteNoneMode
+	}
+	c.SetSameSite(sameSite)
+	c.SetCookie("access_token", token, maxAge, "/", "", secure, true)
+}
+
 func (s *Server) RegisterHandler(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -47,7 +57,7 @@ func (s *Server) RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("access_token", token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60, "/", "", false, true)
+	setAuthCookie(c, token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60)
 	c.JSON(http.StatusOK, gin.H{"message": "registered"})
 }
 
@@ -78,7 +88,7 @@ func (s *Server) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("access_token", token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60, "/", "", false, true)
+	setAuthCookie(c, token, middleware.ACCESS_TOKEN_EXPIRE_MINUTES*60)
 	c.JSON(http.StatusOK, gin.H{"message": "logged in"})
 }
 
@@ -105,7 +115,7 @@ func (s *Server) MeHandler(c *gin.Context) {
 }
 
 func (s *Server) LogoutHandler(c *gin.Context) {
-	c.SetCookie("access_token", "", -1, "/", "", false, true)
+	setAuthCookie(c, "", -1)
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
