@@ -1,6 +1,6 @@
 # Mnemosyne — Backend
 
-Real-time collaborative note editor backend. Built from scratch in Go — WebSocket sync, Operational Transformation, PostgreSQL persistence, and JWT auth.
+Real-time collaborative note editor backend in Go. WebSocket sync, Operational Transformation, PostgreSQL persistence, and JWT auth.
 
 ---
 
